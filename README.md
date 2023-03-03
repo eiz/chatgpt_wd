@@ -35,4 +35,6 @@ eiz@eiz13k:~/chatgpt2py$ gpt print the first 10 prime numbers | python
 19
 23
 29
+eiz@eiz13k:~$ gpt automate updating an ubuntu system | python
+[sudo] password for eiz:
 ```
