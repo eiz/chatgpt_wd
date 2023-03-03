@@ -1,5 +1,11 @@
 my contribution to the ChatGPT craze.
 
+Install:
+
+```
+cargo install chatgpt2py
+```
+
 Usage:
 
 ```
