@@ -2,15 +2,17 @@ use std::fs;
 
 use anyhow::anyhow;
 use clap::Parser;
+use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
+use thirtyfour::prelude::*;
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 struct ChatMessage {
     role: String,
     content: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 struct ChatRequest {
     pub model: String,
     pub messages: Vec<ChatMessage>,
@@ -30,7 +32,7 @@ struct ChatRequest {
     pub frequency_penalty: Option<f32>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 struct ChatResponse {
     pub id: String,
     pub object: String,
@@ -39,14 +41,14 @@ struct ChatResponse {
     pub usage: ChatUsage,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 struct ChatChoice {
     pub index: u32,
     pub message: ChatMessage,
     pub finish_reason: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 struct ChatUsage {
     pub prompt_tokens: u32,
     pub completion_tokens: u32,
@@ -58,53 +60,21 @@ struct ChatUsage {
 struct Args {
     #[arg(short, long)]
     sys: Option<String>,
-    query: Vec<String>,
+    url: String,
 }
 
-fn leading_spaces(s: &str) -> usize {
-    let mut count = 0;
-    for c in s.chars() {
-        if c.is_whitespace() {
-            count += 1;
-        } else {
-            break;
-        }
-    }
-    count
-}
+async fn do_one_element(
+    openai_key: String,
+    driver: WebDriver,
+    mut query: ChatRequest,
+    el: WebElement,
+    text: String,
+) -> anyhow::Result<()> {
+    query.messages.push(ChatMessage {
+        role: "user".to_owned(),
+        content: text.to_owned(),
+    });
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    let args = Args::parse();
-    let openai_key = fs::read_to_string(
-        dirs::home_dir()
-            .ok_or_else(|| anyhow!["missing $HOME"])?
-            .join(".openai"),
-    )?
-    .trim()
-    .to_owned();
-    let sys = args.sys.unwrap_or(
-        "Assistant answers all queries in the form of a complete python script. You may only respond with valid python code, no idle statements.".to_owned(),
-    );
-    let query = ChatRequest {
-        model: "gpt-3.5-turbo".to_owned(),
-        temperature: Some(0.0),
-        messages: vec![
-            ChatMessage {
-                role: "system".to_owned(),
-                content: sys,
-            },
-            ChatMessage {
-                role: "user".to_owned(),
-                content: args.query.join(" "),
-            },
-            ChatMessage {
-                role: "assistant".to_owned(),
-                content: "#!/usr/bin/env python3".to_owned(),
-            },
-        ],
-        ..Default::default()
-    };
     let body = serde_json::to_string(&query)?;
     let client = reqwest::Client::new();
     let response = client
@@ -119,31 +89,71 @@ async fn main() -> anyhow::Result<()> {
 
     if !status.is_success() {
         eprintln!("uh oh, an error: \n{}", response_text);
-        std::process::exit(1);
     }
 
     let result: ChatResponse = serde_json::from_str(&response_text)?;
-    let mut in_code = false;
-    let mut last_indent = 0;
     let content = &result.choices[0].message.content;
-    let strip_markdown = content.contains("```");
 
-    for line in content.lines() {
-        if strip_markdown && line.starts_with("```") {
-            in_code = !in_code;
-            if !in_code {
-                break;
-            }
-            continue;
-        }
-        if !strip_markdown || in_code {
-            println!("{}", line);
-            last_indent = leading_spaces(line);
-        } else {
-            for comment_line in textwrap::wrap(line, (80 - last_indent).max(20)) {
-                println!("{}# {}", " ".repeat(last_indent), comment_line);
-            }
+    driver
+        .execute(
+            "arguments[0].innerText = arguments[1]",
+            vec![el.to_json()?, serde_json::to_value(&content)?],
+        )
+        .await?;
+    Ok(())
+}
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let args = Args::parse();
+    let openai_key = fs::read_to_string(
+        dirs::home_dir()
+            .ok_or_else(|| anyhow!["missing $HOME"])?
+            .join(".openai"),
+    )?
+    .trim()
+    .to_owned();
+    let sys = args
+        .sys
+        .unwrap_or("You rewrite text as if it was written by a pirate. Arr, matey! Each response is the text, but piratey.".to_owned());
+    let caps = DesiredCapabilities::chrome();
+    let driver = WebDriver::new("http://localhost:9515", caps).await?;
+
+    driver.goto(&args.url).await?;
+    let elements = driver.find_all(By::XPath("//*[text() and not(*)]")).await?;
+
+    let query_template = ChatRequest {
+        model: "gpt-3.5-turbo".to_owned(),
+        temperature: Some(1.0),
+        messages: vec![ChatMessage {
+            role: "system".to_owned(),
+            content: sys,
+        }],
+        ..Default::default()
+    };
+
+    let mut to_rewrite = vec![];
+    for el in elements {
+        let text = el.text().await?;
+
+        if text.len() > 20 {
+            println!("{}", text);
+            to_rewrite.push((el.clone(), text));
         }
     }
+
+    let handles = {
+        let driver = driver.clone();
+        let handles = tokio_stream::iter(to_rewrite.into_iter().map(move |(el, text)| {
+            let query = query_template.clone();
+            let openai_key = openai_key.clone();
+            let driver = driver.clone();
+            do_one_element(openai_key, driver, query, el, text)
+        }))
+        .buffer_unordered(8);
+        handles
+    };
+
+    let _ = handles.collect::<Vec<anyhow::Result<()>>>().await;
     Ok(())
 }

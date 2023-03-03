@@ -1,22 +1,19 @@
 [package]
-name = "chatgpt2py"
+name = "chatgpt_wd"
 version = "0.1.0"
 edition = "2021"
 authors = ["Mack Straight <eizneckam@gmail.com>"]
-description = "step aside curl | bash there's a new sheriff in town"
+description = "personalize your web experience"
 license = "MIT"
-
-[[bin]]
-name = "gpt"
-path = "src/main.rs"
 
 [dependencies]
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
 dirs = "4"
+futures-util = "0.3"
 reqwest = "0.11"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-textwrap = "0.16"
-thiserror = "1"
+thirtyfour = "0.31"
 tokio = { version = "1.26", features = ["full"] }
+tokio-stream = "0.1"
