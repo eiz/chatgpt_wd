@@ -6,6 +6,8 @@ Install:
 cargo install chatgpt2py
 ```
 
+Put your OpenAI API key in a text file called `~/.openai`
+
 Usage:
 
 ```
