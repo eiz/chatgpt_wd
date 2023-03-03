@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 authors = ["Mack Straight <eizneckam@gmail.com>"]
 description = "step aside curl | bash there's a new sheriff in town"
+license = "MIT"
 
 [[bin]]
 name = "gpt"
