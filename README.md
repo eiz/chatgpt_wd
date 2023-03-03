@@ -24,4 +24,15 @@ eiz@eiz13k:~$ gpt print all the sysctls from /proc/sys, recursively | python
 /proc/sys/fs/aio-max-nr
 /proc/sys/fs/aio-nr
 ...
+eiz@eiz13k:~/chatgpt2py$ gpt print the first 10 prime numbers | python
+2
+3
+5
+7
+11
+13
+17
+19
+23
+29
 ```
