@@ -78,7 +78,7 @@ async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     let openai_key = fs::read_to_string(
         dirs::home_dir()
-            .ok_or_else(|| anyhow!["missing ~/.openai"])?
+            .ok_or_else(|| anyhow!["missing $HOME"])?
             .join(".openai"),
     )?
     .trim()
