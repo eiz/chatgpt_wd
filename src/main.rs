@@ -58,8 +58,13 @@ struct ChatUsage {
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    #[arg(short, long, help = "system prompt")]
-    sys: Option<String>,
+    #[arg(
+        short,
+        long,
+        default_value = "You are WebshitBot. Your job is to rewrite headlines to include typical HN midwit dismissals. The user will supply blocks of text. Rewrite each text block to contain a low-effort dismissal of the article, typical of Hacker News.",
+        help = "system prompt"
+    )]
+    sys: String,
     #[arg(short, long, default_value_t = 8, help = "number of concurrent edits")]
     concurrency: usize,
     #[arg(short, long, help = "how randomized do you want it? 0.0-2.0")]
@@ -71,6 +76,12 @@ struct Args {
         help = "minimum text length to edit"
     )]
     min_length: usize,
+    #[arg(
+        long,
+        default_value = "//*[text() and not(*)]",
+        help = "xpath selector to find elements to edit"
+    )]
+    selector: String,
     #[arg(help = "page to open")]
     url: String,
 }
@@ -122,13 +133,11 @@ async fn main() -> anyhow::Result<()> {
     .map_err(|_| anyhow!["failed to read ~/.openai. put your openai key in there."])?
     .trim()
     .to_owned();
-    let sys = args
-        .sys
-        .unwrap_or("You are WebshitBot. Your job is to rewrite headlines to include typical HN midwit dismissals. The user will supply blocks of text. Rewrite each text block to contain a low-effort dismissal of the article, typical of Hacker News.".to_owned());
+    let sys = args.sys.clone();
     let caps = DesiredCapabilities::chrome();
     let driver = WebDriver::new("http://localhost:9515", caps).await?;
     driver.goto(&args.url).await?;
-    let elements = driver.find_all(By::XPath("//*[text() and not(*)]")).await?;
+    let elements = driver.find_all(By::XPath(&args.selector)).await?;
     let query_template = ChatRequest {
         model: "gpt-3.5-turbo".to_owned(),
         temperature: args.temperature,
