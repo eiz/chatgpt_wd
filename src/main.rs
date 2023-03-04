@@ -67,8 +67,13 @@ struct Args {
     sys: String,
     #[arg(short, long, default_value_t = 8, help = "number of concurrent edits")]
     concurrency: usize,
-    #[arg(short, long, help = "how randomized do you want it? 0.0-2.0")]
-    temperature: Option<f32>,
+    #[arg(
+        short,
+        long,
+        default_value_t = 1.0,
+        help = "how randomized do you want it? 0.0-2.0"
+    )]
+    temperature: f32,
     #[arg(
         short,
         long,
@@ -140,7 +145,7 @@ async fn main() -> anyhow::Result<()> {
     let elements = driver.find_all(By::XPath(&args.selector)).await?;
     let query_template = ChatRequest {
         model: "gpt-3.5-turbo".to_owned(),
-        temperature: args.temperature,
+        temperature: Some(args.temperature),
         messages: vec![ChatMessage {
             role: "system".to_owned(),
             content: sys,
@@ -152,7 +157,7 @@ async fn main() -> anyhow::Result<()> {
         let text = el.text().await?;
         if text.len() >= args.min_length {
             println!("{}", text);
-            to_rewrite.push((el.clone(), text));
+            to_rewrite.push((el, text));
         }
     }
     let driver = driver.clone();
