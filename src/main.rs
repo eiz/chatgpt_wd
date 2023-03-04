@@ -160,7 +160,6 @@ async fn main() -> anyhow::Result<()> {
             to_rewrite.push((el, text));
         }
     }
-    let driver = driver.clone();
     let _ = tokio_stream::iter(to_rewrite.into_iter().map(move |(el, text)| {
         let query = query_template.clone();
         let openai_key = openai_key.clone();
