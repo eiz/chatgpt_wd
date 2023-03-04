@@ -60,6 +60,8 @@ struct ChatUsage {
 struct Args {
     #[arg(short, long)]
     sys: Option<String>,
+    #[arg(short, long, default_value_t = 8)]
+    concurrency: usize,
     url: String,
 }
 
@@ -146,7 +148,7 @@ async fn main() -> anyhow::Result<()> {
             Ok(())
         }
     }))
-    .buffer_unordered(8)
+    .buffer_unordered(args.concurrency)
     .collect::<Vec<anyhow::Result<_>>>()
     .await;
     Ok(())

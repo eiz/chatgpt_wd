@@ -15,6 +15,8 @@ chatgpt_wd https://news.ycombinator.com
 chatgpt_wd --sys "You are EmperorBot. Your job is to rewrite text blocks to be consistent with the perspective of the Imperium of Man. The user will supply text blocks and you will rewrite each one to conform to said perspective, producing text of about the same length." https://nytimes.com
 ```
 
+If you get rate limited, maybe try `--concurrency 1`
+
 ![example](/example.png)
 ![imperial_example](/imperial_example.png)
 
