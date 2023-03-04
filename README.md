@@ -16,6 +16,7 @@ chatgpt_wd --sys "You are EmperorBot. Your job is to rewrite text blocks to be c
 ```
 
 ![example](/example.png)
+![imperial_example](/imperial_example.png)
 
 # Bugs
 
