@@ -1,6 +1,6 @@
 use std::fs;
 
-use anyhow::anyhow;
+use anyhow::{anyhow, bail};
 use clap::Parser;
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
@@ -68,13 +68,12 @@ async fn do_one_element(
     driver: WebDriver,
     mut query: ChatRequest,
     el: WebElement,
-    text: String,
+    text: &str,
 ) -> anyhow::Result<()> {
     query.messages.push(ChatMessage {
         role: "user".to_owned(),
         content: text.to_owned(),
     });
-
     let body = serde_json::to_string(&query)?;
     let client = reqwest::Client::new();
     let response = client
@@ -86,15 +85,11 @@ async fn do_one_element(
         .await?;
     let status = response.status();
     let response_text = response.text().await?;
-
     if !status.is_success() {
-        eprintln!("uh oh, an error: \n{}", response_text);
-        return Ok(());
+        bail!("{}", response_text);
     }
-
     let result: ChatResponse = serde_json::from_str(&response_text)?;
     let content = &result.choices[0].message.content;
-
     driver
         .execute(
             "arguments[0].innerText = arguments[1]",
@@ -111,18 +106,17 @@ async fn main() -> anyhow::Result<()> {
         dirs::home_dir()
             .ok_or_else(|| anyhow!["missing $HOME"])?
             .join(".openai"),
-    )?
+    )
+    .map_err(|_| anyhow!["failed to read ~/.openai. put your openai key in there."])?
     .trim()
     .to_owned();
     let sys = args
         .sys
-        .unwrap_or("If it looks like a headline, repeat the headline, followed by a typical HN midwit dismissal. Don't alter URLs.".to_owned());
+        .unwrap_or("You are WebshitBot. Your job is to rewrite headlines to include typical HN midwit dismissals. The user will supply blocks of text. Rewrite each text block to contain a low-effort dismissal of the article, typical of Hacker News.".to_owned());
     let caps = DesiredCapabilities::chrome();
     let driver = WebDriver::new("http://localhost:9515", caps).await?;
-
     driver.goto(&args.url).await?;
     let elements = driver.find_all(By::XPath("//*[text() and not(*)]")).await?;
-
     let query_template = ChatRequest {
         model: "gpt-3.5-turbo".to_owned(),
         temperature: Some(1.0),
@@ -132,32 +126,28 @@ async fn main() -> anyhow::Result<()> {
         }],
         ..Default::default()
     };
-
     let mut to_rewrite = vec![];
     for el in elements {
         let text = el.text().await?;
-
         if text.len() > 20 {
             println!("{}", text);
             to_rewrite.push((el.clone(), text));
         }
     }
-
-    let handles = {
+    let driver = driver.clone();
+    let _ = tokio_stream::iter(to_rewrite.into_iter().map(move |(el, text)| {
+        let query = query_template.clone();
+        let openai_key = openai_key.clone();
         let driver = driver.clone();
-        let handles = tokio_stream::iter(to_rewrite.into_iter().map(move |(el, text)| {
-            let query = query_template.clone();
-            let openai_key = openai_key.clone();
-            let driver = driver.clone();
-            async {
-                let _ = do_one_element(openai_key, driver, query, el, text).await;
-                Ok(())
+        async move {
+            if let Err(e) = do_one_element(openai_key, driver, query, el, &text).await {
+                eprintln!("error processing text {}:\n{:?}", text, e)
             }
-        }))
-        .buffer_unordered(8);
-        handles
-    };
-
-    let _ = handles.collect::<Vec<anyhow::Result<()>>>().await;
+            Ok(())
+        }
+    }))
+    .buffer_unordered(8)
+    .collect::<Vec<anyhow::Result<_>>>()
+    .await;
     Ok(())
 }

@@ -1,4 +1,4 @@
-More stupid fun with ChatGPT
+More stupid fun with ChatGPT. Rewrites web text based on your prompt.
 
 ```
 cargo install chatgpt_wd
@@ -16,3 +16,11 @@ chatgpt_wd --sys "You are EmperorBot. Your job is to rewrite text blocks to be c
 ```
 
 ![example](/example.png)
+
+# Bugs
+
+the rust `webdriver` crate likes to panic when any kind of error happens. /shrug
+
+the XPaths are very XPath and WebDriver isn't actually good at finding text nodes (as opposed to elements)
+
+this should really be a browser extension instead of using webdriver at all, but it was ez
