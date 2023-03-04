@@ -155,5 +155,6 @@ async fn main() -> anyhow::Result<()> {
     };
 
     let _ = handles.collect::<Vec<anyhow::Result<()>>>().await;
+    std::mem::forget(driver);
     Ok(())
 }
