@@ -58,10 +58,20 @@ struct ChatUsage {
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    #[arg(short, long)]
+    #[arg(short, long, help = "system prompt")]
     sys: Option<String>,
-    #[arg(short, long, default_value_t = 8)]
+    #[arg(short, long, default_value_t = 8, help = "number of concurrent edits")]
     concurrency: usize,
+    #[arg(short, long, help = "how randomized do you want it? 0.0-2.0")]
+    temperature: Option<f32>,
+    #[arg(
+        short,
+        long,
+        default_value_t = 20,
+        help = "minimum text length to edit"
+    )]
+    min_length: usize,
+    #[arg(help = "page to open")]
     url: String,
 }
 
@@ -121,7 +131,7 @@ async fn main() -> anyhow::Result<()> {
     let elements = driver.find_all(By::XPath("//*[text() and not(*)]")).await?;
     let query_template = ChatRequest {
         model: "gpt-3.5-turbo".to_owned(),
-        temperature: Some(1.0),
+        temperature: args.temperature,
         messages: vec![ChatMessage {
             role: "system".to_owned(),
             content: sys,
@@ -131,7 +141,7 @@ async fn main() -> anyhow::Result<()> {
     let mut to_rewrite = vec![];
     for el in elements {
         let text = el.text().await?;
-        if text.len() > 20 {
+        if text.len() >= args.min_length {
             println!("{}", text);
             to_rewrite.push((el.clone(), text));
         }
