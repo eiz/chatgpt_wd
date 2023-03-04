@@ -22,6 +22,6 @@ chatgpt_wd --sys "You are EmperorBot. Your job is to rewrite text blocks to be c
 
 the rust `webdriver` crate likes to panic when any kind of error happens. /shrug
 
-the XPaths are very XPath and WebDriver isn't actually good at finding text nodes (as opposed to elements)
+the XPaths are very XPath. it won't transform anything with non-text child elements.
 
 this should really be a browser extension instead of using webdriver at all, but it was ez
