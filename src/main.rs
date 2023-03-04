@@ -89,6 +89,7 @@ async fn do_one_element(
 
     if !status.is_success() {
         eprintln!("uh oh, an error: \n{}", response_text);
+        return Ok(());
     }
 
     let result: ChatResponse = serde_json::from_str(&response_text)?;
@@ -148,7 +149,10 @@ async fn main() -> anyhow::Result<()> {
             let query = query_template.clone();
             let openai_key = openai_key.clone();
             let driver = driver.clone();
-            do_one_element(openai_key, driver, query, el, text)
+            async {
+                let _ = do_one_element(openai_key, driver, query, el, text).await;
+                Ok(())
+            }
         }))
         .buffer_unordered(8);
         handles
