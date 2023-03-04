@@ -115,7 +115,7 @@ async fn main() -> anyhow::Result<()> {
     .to_owned();
     let sys = args
         .sys
-        .unwrap_or("You rewrite text as if it was written by a pirate. Arr, matey! Each response is the text, but piratey.".to_owned());
+        .unwrap_or("If it looks like a headline, repeat the headline, followed by a typical HN midwit dismissal. Don't alter URLs.".to_owned());
     let caps = DesiredCapabilities::chrome();
     let driver = WebDriver::new("http://localhost:9515", caps).await?;
 
